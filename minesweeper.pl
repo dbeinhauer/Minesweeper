@@ -21,7 +21,69 @@ choose_board(Rows, Columns, Mines) :-
 % init_game(+Rows, +Columns, +Mines) :- 
 init_game(Rows, Columns, Mines) :-
     generate_game_board(Rows, Columns, Mines, Board),
+    generate_empty_board(Rows, Columns, Revealed),
+    print_game_board(Rows,Columns, Revealed),
     start_game(Rows, Columns, Mines, Board, Revealed).
+
+
+print_game_board(Rows, Columns, Board) :-
+    print_field(Rows, Columns, Board).
+
+print_field(Nrow, Ncol, Revealed) :- 
+    print_field(Nrow, Ncol, -1, Revealed).
+
+print_field(Nrow, _, _, []).
+
+print_field(Nrow, Ncol, -1, Revealed) :-
+    !,
+    numlist(1, Ncol, ColList),
+    write("   |"),
+    print_row(ColList), nl,
+    print_field(Nrow, Ncol, 0, Revealed).
+
+print_field(Nrow, Ncol, 0, Revealed) :-
+    !, Nsep is (Ncol + 1) * 3,
+    generate_list("-", Nsep, Result),
+    atomic_list_concat(Result, '', ToPrint),
+    write(ToPrint), nl,
+    print_field(Nrow, Ncol, 1, Revealed).
+
+print_field(Nrow, Ncol, CurRow, [Row|Rest]) :-
+    print_number(CurRow), write("|"),
+    print_row(Row), nl,
+    NewCurRow is CurRow + 1,
+    print_field(Nrow, Ncol, NewCurRow, Rest).
+
+print_row([]).
+
+print_row([x|Xs]) :-
+    !, write(" x "),
+    print_row(Xs).
+
+print_row([.|Xs]) :-
+    !, write(" . "),
+    print_row(Xs).
+
+
+print_row([X|Xs]) :-
+    print_number(X),
+    print_row(Xs).
+
+print_number(Num) :- 
+    Num < 10, !,
+    write(" "), write(Num), write(" ").
+
+print_number(Num) :-
+    write(Num), write(" ").
+
+
+print_field_helper(Nrow, Ncol, CurRow, [Row|Rest]) :- 
+    print_number(CurRow), write("|"), 
+    list_ref(CurRow,Gameboard,GameboardRow),
+    print_game_board_row(GameboardRow,CurRow,1,Revealed), 
+    write("|"), write("  "), write(CurRow),nl,
+    NextRow is CurRow + 1, 
+    print_field_helper(Nrow,Ncol,Gameboard,NextRow,Revealed). 
 
 
 % correct_game(+Choice, -Rows, -Columns, -Mines) :- Checks whether game choice was correct.
@@ -61,7 +123,7 @@ random_subset(IndexList, M, [X|Xs]) :-
 
 % generate_empty_board(+Rows, +Columns, -EmptyBoard) :- generates game board filled with empty cells
 generate_empty_board(Rows, Columns, EmptyBoard) :-
-    generate_matrix(Rows, Columns, 0, EmptyBoard).
+    generate_matrix(Rows, Columns, ., EmptyBoard).
 
 
 % generate_matrix(+Rows, +Columns, +Content, -Result) :- generates 2D matrix filled with `Content`
@@ -85,20 +147,24 @@ set_mines(Act, [X|Xs], Columns, New) :-
 % set_one_mine(+EmptyBoard, +Mine, +Columns, -MinesBoard) :- sets one mine on the gameboard
 set_one_mine(Prev, X, Columns, Act) :- 
     Index is X - 1,
-    replace_in_matrix(Prev, Index, Columns, Act).
+    replace_in_matrix(Prev, Index, x, Columns, Act).
 
 
-replace_in_matrix(Prev, Index, Columns, New) :- replace_in_matrix(Prev, Index, Columns, [], New).
-replace_in_matrix([Row|RestRows], Index, Columns, A, New) :-
+% replace_in_matrix(+Prev, +Index, +Element, +Columns, -NewMatrix) :- replaces element
+% in matrix on given index (counting from 1, row-wise) with the `Element`
+replace_in_matrix(Prev, Index, Elem, Columns, New) :- 
+    replace_in_matrix(Prev, Index, Elem, Columns, [], New).
+
+replace_in_matrix([Row|RestRows], Index, Elem, Columns, A, New) :-
     Columns > Index,
-    replace(Row, Index, x, NewRow),
+    replace(Row, Index, Elem, NewRow),
     reverse(A, NewA),
     append(NewA, [NewRow|RestRows], New).
 
-replace_in_matrix([Row|RestRows], Index, Columns, A, New) :-
+replace_in_matrix([Row|RestRows], Index, Elem, Columns, A, New) :-
     Columns =< Index,
     NewIndex is Index - Columns,
-    replace_in_matrix(RestRows, NewIndex, Columns, [Row|A], New).
+    replace_in_matrix(RestRows, NewIndex, Elem, Columns, [Row|A], New).
 
 
 replace([_|T], 0, X, [X|T]).
@@ -211,25 +277,65 @@ count_adjacent_row([X1, X2, X3|RestX], [Y1, Y2, Y3|RestY], [Z1, Z2, Z3|RestZ], C
     count_adjacent_row([X2, X3|RestX], [Y2, Y3|RestY], [Z2, Z3|RestZ], NewColPos, NewRow).
 
 
-
-
-
-get_in_matrix([Row|_], Index, Columns, Result) :-
-    Columns > Index, !,
-    nth0(Index, Row, Result).
-
-get_in_matrix([_|RestRows], Index, Columns, Result) :-
-    NewIndex is Index - Columns,
-    get_in_matrix(RestRows, NewIndex, Columns, Result).
-
-
+% count_cell_mines(+CellsToCheck, -NumOfMines) :- counts mines in neighborhood
 count_cell_mines(CellsToCheck, Num) :-
     count(CellsToCheck, x, Num). 
 
 
+% count(+List, +SymbolToCount, -Num) :- counts number of occurence of `SymbolToCount` in `List`
 count([],_,0).
 count([X|T],X,Y):- count(T,X,Z), Y is 1+Z.
 count([X1|T],X,Z):- X1\=X,count(T,X,Z).
+
+
+% start_game(+Rows, +Columns, +Mines, +Gameboard, -Revealed)
+start_game(Nrow, Ncol, Mines, Gameboard, Revealed) :-
+    write("-------------------------------------------"), nl,
+    write("Make your next move!"), nl,
+    request_row_col(Nrow,Ncol,Row,Col, Revealed),
+    reveal_position(Row, Col, Ncol, Gameboard, Revealed, NewRevealed),
+    print_game_board(Nrow, Ncol, NewRevealed).
+
+request_row_col(Nrow,Ncol,Row,Col, Revealed) :-
+    write("Row    of cell to reveal:  "), read(ReadR),
+    write("Column of cell to reveal:  "), read(ReadC),
+    check_row_col(Nrow, Ncol, Revealed, ReadR, ReadC, Row, Col).
+
+
+%check_row_col is true if ReadR, ReadC, are user-specified inputs, and Row, Col, are valid inbound inputs based on Nrow, Ncol, ReadR, ReadC.
+%if ReadR and ReadC are not valid inputs, then Row, Col, are requested again.
+check_row_col(Nrow, Ncol, Revealed, Row, Col, Row, Col) :- 
+    in_bounds(Nrow,Ncol,Row,Col), 
+    convert_coord_index(Row, Col, Ncol, Index),
+    get_value_matrix(Revealed, Index, Ncol, .), !.
+
+check_row_col(Nrow, Ncol, Revealed, ReadR, ReadC, Row, Col) :-
+    write("Bad input. Please enter again."), nl,
+    request_row_col(Nrow,Ncol,Row,Col, Revealed).
+
+in_bounds(Nrow,Ncol,Row,Col) :-
+    integer(Nrow), integer(Ncol),
+    0 < Row, 0 < Col,
+    Nrow >= Row, Ncol >= Col.
+
+convert_coord_index(Row, Column, Ncol, Index) :-
+    Index is (Row -1) * Ncol + Column - 1.
+
+
+get_value_matrix([Row|_], Index, Ncol, Result) :-
+    Ncol > Index, !,
+    nth0(Index, Row, Result).
+
+get_value_matrix([_|RestRows], Index, Ncol, Result) :-
+    NewIndex is Index - Ncol,
+    get_value_matrix(RestRows, NewIndex, Ncol, Result).
+
+
+reveal_position(Row, Col, Ncol, Gameboard, Revealed, NewRevealed) :-
+    convert_coord_index(Row, Col, Ncol, Index),
+    get_value_matrix(Gameboard, Index, Ncol, ToReveal),
+    replace_in_matrix(Revealed, Index, ToReveal, Ncol, NewRevealed).
+
 
 
 
