@@ -23,7 +23,8 @@ init_game(Rows, Columns, Mines) :-
     generate_game_board(Rows, Columns, Mines, Board),
     generate_empty_board(Rows, Columns, Revealed),
     print_game_board(Rows,Columns, Revealed),
-    start_game(Rows, Columns, Mines, Board, Revealed).
+    NumToReveal is Rows * Columns - Mines,
+    start_game(Rows, Columns, Mines, NumToReveal, Board, Revealed).
 
 
 print_game_board(Rows, Columns, Board) :-
@@ -77,22 +78,13 @@ print_number(Num) :-
     write(Num), write(" ").
 
 
-print_field_helper(Nrow, Ncol, CurRow, [Row|Rest]) :- 
-    print_number(CurRow), write("|"), 
-    list_ref(CurRow,Gameboard,GameboardRow),
-    print_game_board_row(GameboardRow,CurRow,1,Revealed), 
-    write("|"), write("  "), write(CurRow),nl,
-    NextRow is CurRow + 1, 
-    print_field_helper(Nrow,Ncol,Gameboard,NextRow,Revealed). 
-
-
 % correct_game(+Choice, -Rows, -Columns, -Mines) :- Checks whether game choice was correct.
 % If so, generate pre-set number of rows, collumns and mines.
 
 % Correct input:
-correct_game(1, 8, 8, 10) :- !.
-correct_game(2, 16, 16, 40) :- !.
-correct_game(3, 32, 32, 100) :- !.
+correct_game(1, 8, 8, 8) :- !.
+correct_game(2, 16, 16, 32) :- !.
+correct_game(3, 32, 32, 90) :- !.
 % Bad input:
 correct_game(_, Rows, Columns, Mines) :-
     write("Bad input. Choose again."), nl, nl,
@@ -289,12 +281,17 @@ count([X1|T],X,Z):- X1\=X,count(T,X,Z).
 
 
 % start_game(+Rows, +Columns, +Mines, +Gameboard, -Revealed)
-start_game(Nrow, Ncol, Mines, Gameboard, Revealed) :-
+start_game(Nrow, Ncol, Mines, NumToReveal, Gameboard, Revealed) :-
     write("-------------------------------------------"), nl,
     write("Make your next move!"), nl,
+    % print_game_board(Nrow, Ncol, Gameboard),
     request_row_col(Nrow,Ncol,Row,Col, Revealed),
-    reveal_position(Row, Col, Ncol, Gameboard, Revealed, NewRevealed),
-    print_game_board(Nrow, Ncol, NewRevealed).
+    % write(Row), write(Col),
+    reveal_position(Row, Col, Nrow, Ncol, NumToReveal, Gameboard, Revealed, NewNumToReveal, ToReveal, NewRevealed),
+    % reveal_zero_position(Row, Col, Nrow, Ncol, Gameboard, ToReveal, NewRevealed1, NewRevealed),
+    % write(ToReveal),
+    print_game_board(Nrow, Ncol, NewRevealed),
+    next_move(Nrow, Ncol, Mines, NewNumToReveal, Gameboard, ToReveal, NewRevealed).
 
 request_row_col(Nrow,Ncol,Row,Col, Revealed) :-
     write("Row    of cell to reveal:  "), read(ReadR),
@@ -321,6 +318,9 @@ in_bounds(Nrow,Ncol,Row,Col) :-
 convert_coord_index(Row, Column, Ncol, Index) :-
     Index is (Row -1) * Ncol + Column - 1.
 
+convert_index_coord(Index, Ncol, Row, Column) :-
+    Row is Index div Ncol + 1,
+    Column is Index mod Ncol + 1.
 
 get_value_matrix([Row|_], Index, Ncol, Result) :-
     Ncol > Index, !,
@@ -331,11 +331,56 @@ get_value_matrix([_|RestRows], Index, Ncol, Result) :-
     get_value_matrix(RestRows, NewIndex, Ncol, Result).
 
 
-reveal_position(Row, Col, Ncol, Gameboard, Revealed, NewRevealed) :-
+% reveal_position(Row, Col, Nrow, Ncol, NumToReveal, Gameboard, Revealed, NewNumToReveal, ToReveal, NewRevealed),
+reveal_position(Row, Col, Nrow, Ncol, NumToReveal, Gameboard, Revealed, NewNumToReveal, 0, NewRevealed) :-
+    convert_coord_index(Row, Col, Ncol, Index),
+    get_value_matrix(Gameboard, Index, Ncol, 0), !,
+    replace_in_matrix(Revealed, Index, 0, Ncol, NewRevealed1),
+    NNTR1 is NumToReveal -1,
+    reveal_zero_position(Row, Col, Nrow, Ncol, NNTR1, Gameboard, NewRevealed1, NewNumToReveal, NewRevealed).
+
+reveal_position(Row, Col, Nrow, Ncol, NumToReveal, Gameboard, Revealed, NewNumToReveal, ToReveal, NewRevealed) :-
     convert_coord_index(Row, Col, Ncol, Index),
     get_value_matrix(Gameboard, Index, Ncol, ToReveal),
-    replace_in_matrix(Revealed, Index, ToReveal, Ncol, NewRevealed).
+    replace_in_matrix(Revealed, Index, ToReveal, Ncol, NewRevealed),
+    NewNumToReveal is NumToReveal - 1.
 
+
+% reveal_zero_position(+Row, +Col, +Nrow, Ncol, Gameboard, Revealed, NewRevealed)
+reveal_zero_position(Row, Col, Nrow, Ncol, NumToReveal, Gameboard, Revealed, NewNumToReveal, NewRevealed) :-
+    RowL is Row -1, RowR is Row +1, ColL is Col -1, ColR is Col +1,
+    reveal_auto(RowL, ColL, Nrow, Ncol, NumToReveal, Gameboard, Revealed, NNTR1, NR1),
+    reveal_auto(RowL, Col, Nrow, Ncol, NNTR1, Gameboard, NR1, NNTR2, NR2),
+    reveal_auto(RowL, ColR, Nrow, Ncol, NNTR2, Gameboard, NR2, NNTR3, NR3),
+    reveal_auto(Row, ColL, Nrow, Ncol, NNTR3, Gameboard, NR3, NNTR4, NR4),
+    reveal_auto(Row, ColR, Nrow, Ncol ,NNTR4, Gameboard, NR4, NNTR5, NR5),
+    reveal_auto(RowR, ColL, Nrow, Ncol, NNTR5, Gameboard, NR5, NNTR6, NR6),
+    reveal_auto(RowR, Col, Nrow, Ncol, NNTR6, Gameboard, NR6, NNTR7, NR7),
+    reveal_auto(RowR, ColR, Nrow, Ncol, NNTR7, Gameboard, NR7, NewNumToReveal, NewRevealed).
+
+
+% New index to reveal is not already reveled and it ia valid coordinate
+reveal_auto(Row, Col, Nrow, Ncol, NumToReveal, Gameboard, Revealed, NewNumToReveal, NewRevealed) :- %, IndicesToReveal, NewIndicesToReveal) :-
+    in_bounds(Nrow, Ncol, Row, Col),
+    convert_coord_index(Row, Col, Ncol, Index),
+    get_value_matrix(Revealed, Index, Ncol, .), !,
+    reveal_position(Row, Col, Nrow, Ncol, NumToReveal, Gameboard, Revealed, NewNumToReveal, _, NewRevealed).
+   
+reveal_auto(_, _, _, _, NumToReveal, _, Revealed, NumToReveal, Revealed).
+
+
+% next_move(+Nrow, +Ncol, +Mines, +NumToReveal, +Gameboard, +ToReveal, +NewRevealed).
+next_move(Nrow, Ncol, _, _, Gameboard, x, _) :-
+    write("You have revealed a mine!"), nl,
+    write("Game over!"),
+    print_game_board(Nrow, Ncol, Gameboard).
+
+next_move(Nrow, Ncol, _, 0, Gameboard, _, _) :-
+    write("You won!"), nl,
+    print_game_board(Nrow, Ncol, Gameboard).
+
+next_move(Nrow, Ncol, Mines, NumToReveal, Gameboard, _, Revealed) :-
+    start_game(Nrow, Ncol, Mines, NumToReveal, Gameboard, Revealed).
 
 
 
