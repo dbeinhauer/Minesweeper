@@ -404,10 +404,11 @@ count_cell_mines(CellsToCheck, Num) :-
 % ----------------------------------------------GAME LOGIC---------------------------------------------
 
 
-% start_game(+Rows, +Columns, +Mines, +Gameboard, -Revealed) :- manages one game loop
+% start_game(+Rows, +Columns, +Mines, +Gameboard, -Revealed) :- manages one game loop.
 start_game(Nrow, Ncol, Mines, NumToReveal, Gameboard, Revealed) :-
     write("-------------------------------------------"), nl,
     write("Make your next move!"), nl,
+    print_game_board(Nrow, Ncol, Mines, Gameboard),
     % Actual move logic
     request_row_col(Nrow, Ncol, Revealed, Row, Col),
     reveal_position(Row, Col, Nrow, Ncol, NumToReveal, Gameboard, Revealed, NewNumToReveal, ToReveal, NewRevealed),
@@ -416,8 +417,8 @@ start_game(Nrow, Ncol, Mines, NumToReveal, Gameboard, Revealed) :-
     next_move(Nrow, Ncol, Mines, NewNumToReveal, Gameboard, ToReveal, NewRevealed).
 
 
-% request_row_col(+Nrow, +Ncol, +Revealed, -Row, -Col) :- manages one user game move
-request_row_col(Nrow, Ncol, Row ,Col, Revealed) :-
+% request_row_col(+Nrow, +Ncol, +Revealed, -Row, -Col) :- manages one user game move.
+request_row_col(Nrow, Ncol, Revealed, Row ,Col) :-
     write("Row    of cell to reveal:  "), read(ReadR),
     write("Column of cell to reveal:  "), read(ReadC),
     check_row_col(Nrow, Ncol, Revealed, ReadR, ReadC, Row, Col).
@@ -443,6 +444,7 @@ in_bounds(Nrow,Ncol,Row,Col) :-
     integer(Nrow), integer(Ncol),
     0 < Row, 0 < Col,
     Nrow >= Row, Ncol >= Col.
+
 
 % reveal_position(+Row, +Col, +Nrow, +Ncol, +NumToReveal, +Gameboard, +Revealed, -NewNumToReveal, -ToReveal, -NewRevealed) :-
 % reveals the cell on the coordinates (Row, Col), 
