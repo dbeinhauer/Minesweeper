@@ -8,6 +8,12 @@ main :-
     init_game(Rows, Columns, Mines).
 
 
+% Main function to run the testing version of the program (for debuging). 
+test :-
+    write("MINESWEEPER - DEBUGING GAME"), nl,
+    choose_board(Rows, Columns, Mines),
+    init_test_game(Rows, Columns, Mines).
+
 
 % choose_board(+Rows, +Columns, +Mines) :- User selects the board size.
 choose_board(Rows, Columns, Mines) :-
@@ -30,6 +36,14 @@ init_game(Rows, Columns, Mines) :-
     NumToReveal is Rows * Columns - Mines,
     start_game(Rows, Columns, Mines, NumToReveal, Board, Revealed).
 
+
+% Same as init just runs testing game (reveals gameboard for debuging)
+init_test_game(Rows, Columns, Mines) :-
+    generate_game_board(Rows, Columns, Mines, Board),
+    generate_empty_board(Rows, Columns, Revealed),
+    print_game_board(Rows,Columns, Mines, Revealed),
+    NumToReveal is Rows * Columns - Mines,
+    start_test_game(Rows, Columns, Mines, NumToReveal, Board, Revealed).
 
 
 
@@ -132,7 +146,8 @@ print_number(Num) :-
 random_subset(_, 0, []).
 random_subset(IndexList, M, [X|Xs]) :-
     length(IndexList, N), 
-    N >= M,
+    N >= M, 
+    N > 0,
     random(0, N, RandIndex),
     nth0(RandIndex, IndexList, X),
     select(X, IndexList, NewIndexList),
@@ -159,11 +174,13 @@ generate_list(X, N, [X|R]) :-
 % replace_in_matrix(+Prev, +Index, +Element, +Columns, -NewMatrix) :- replaces element
 % in matrix on given index (counting from 1, row-wise) with the `Element`
 replace_in_matrix(Prev, Index, Elem, Columns, New) :- 
+    Index >= 0,
     replace_in_matrix(Prev, Index, Elem, Columns, [], New).
 
 % Replace in current row.
 replace_in_matrix([Row|RestRows], Index, Elem, Columns, A, New) :-
     Columns > Index,
+    !,
     replace(Row, Index, Elem, NewRow),
     reverse(A, NewA),
     append(NewA, [NewRow|RestRows], New).
@@ -176,7 +193,7 @@ replace_in_matrix([Row|RestRows], Index, Elem, Columns, A, New) :-
 
 
 % replace(+List, +Index, +Value, -NewList) :- replaces content of the `List` on `Index` with `Value`.
-replace([_|T], 0, X, [X|T]).
+replace([_|T], 0, X, [X|T]) :- !.
 
 replace([H|T], I, X, [H|R]):- 
     I > -1,
@@ -408,6 +425,18 @@ count_cell_mines(CellsToCheck, Num) :-
 start_game(Nrow, Ncol, Mines, NumToReveal, Gameboard, Revealed) :-
     write("-------------------------------------------"), nl,
     write("Make your next move!"), nl,
+    % Actual move logic
+    request_row_col(Nrow, Ncol, Revealed, Row, Col),
+    reveal_position(Row, Col, Nrow, Ncol, NumToReveal, Gameboard, Revealed, NewNumToReveal, ToReveal, NewRevealed),
+    % Checking game situation and next move.
+    print_game_board(Nrow, Ncol, Mines, NewRevealed),
+    next_move(Nrow, Ncol, Mines, NewNumToReveal, Gameboard, ToReveal, NewRevealed).
+
+
+% Same as start_game just writes revealed gameboard before first move (for debuging).
+start_test_game(Nrow, Ncol, Mines, NumToReveal, Gameboard, Revealed) :-
+    write("-------------------------------------------"), nl,
+    write("Make your next move!"), nl,
     print_game_board(Nrow, Ncol, Mines, Gameboard),
     % Actual move logic
     request_row_col(Nrow, Ncol, Revealed, Row, Col),
@@ -436,7 +465,7 @@ check_row_col(Nrow, Ncol, Revealed, Row, Col, Row, Col) :-
 % Bad input
 check_row_col(Nrow, Ncol, Revealed, _, _, Row, Col) :-
     write("Bad input. Please enter again."), nl,
-    request_row_col(Nrow,Ncol,Row,Col, Revealed).
+    request_row_col(Nrow, Ncol, Revealed, Row, Col).
 
 
 % in_bounds(+NRow, +Ncol, +Row, +Col) :- checks whether coordinates are valid and inside of the gameboard.
@@ -510,7 +539,7 @@ reveal_auto(_, _, _, _, NumToReveal, _, Revealed, NumToReveal, Revealed).
 % Mine reveal -> GAME OVER
 next_move(Nrow, Ncol, _, _, Gameboard, x, _) :-
     write("You have revealed a mine!"), nl,
-    write("Game over!"),
+    write("Game over!"), nl,
     print_field(Nrow, Ncol, Gameboard).
 
 % All cell revealed -> WIN
