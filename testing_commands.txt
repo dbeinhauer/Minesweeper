@@ -1,3 +1,9 @@
+% To test the entire program you can run command which simulates the game, 
+% but also reveals whole gameboard so you can choose specific type of position for testing.
+% To run this test you need to run command:
+?- test.
+
+
 % Just to test if printing the field is working.
 ?- print_game_board(3, 3, 5, [[.,1,.], [., x, 4], [1, 2, x]]).
 Number of mines is: 5
