@@ -1,6 +1,3 @@
-% chdir(`C:/Users/David/source/repos/Zapoctovy_program_neprocko/Minesweeper`).
-% [minesweeper].
-
 % Main function to start the program.
 main :-
     write("MINESWEEPER"), nl,
@@ -172,7 +169,7 @@ generate_list(X, N, [X|R]) :-
 
 
 % replace_in_matrix(+Prev, +Index, +Element, +Columns, -NewMatrix) :- replaces element
-% in matrix on given index (counting from 1, row-wise) with the `Element`
+% in matrix on given index (counting from 0, row-wise) with the `Element`
 replace_in_matrix(Prev, Index, Elem, Columns, New) :- 
     Index >= 0,
     replace_in_matrix(Prev, Index, Elem, Columns, [], New).
@@ -553,6 +550,3 @@ next_move(Nrow, Ncol, Mines, NumToReveal, Gameboard, _, Revealed) :-
 
 
 % ----------------------------------------------END - GAME LOGIC---------------------------------------------
-
-% X = [[0, x, 0], [x, 0, 0], [x, x, x]], count_adjacent(3, 3, X, Y).
-% count_adjacent_row([], [0, x, 0], [x, 0, 0], 0,  X).
